@@ -1,4 +1,4 @@
-FROM --platform=$TARGETPLATFORM ubuntu:bionic
+FROM --platform=$TARGETPLATFORM ubuntu:bionic as builder
 
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -12,3 +12,13 @@ RUN git clone -b stable/v1.0 git://git.kernel.org/pub/scm/utils/rt-tests/rt-test
     make install && \
     cd .. && \
     rm -rf rt-tests 
+
+########
+FROM --platform=$TARGETPLATFORM ubuntu:bionic
+
+RUN apt-get update && apt-get install -y \
+    libnuma1 \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /usr/local/src /usr/local/src
