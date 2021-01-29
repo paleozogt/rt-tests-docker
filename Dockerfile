@@ -18,6 +18,7 @@ FROM --platform=$TARGETPLATFORM ubuntu:bionic
 
 RUN apt-get update && apt-get install -y \
     libnuma1 \
+    time \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /usr/local/bin /usr/local/bin
