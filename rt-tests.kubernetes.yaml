@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rt-tests
+  labels:
+    app: rt-tests
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rt-tests
+  template:
+    metadata:
+      labels:
+        app: rt-tests
+    spec:
+      nodeSelector:
+        latency_test: "true"
+      containers:
+        - name: cyclictest
+          image: paleozogt/rt-tests:1.0
+          command:
+            - /scripts/cyclictest.sh
+          envFrom:
+            - configMapRef:
+                name: rt-tests-env
+          volumeMounts:
+            - name: rt-tests-scripts
+              mountPath: "/scripts"
+            - name: rt-tests-shared
+              mountPath: /rt-tests-shared
+          securityContext:
+            capabilities:
+              add:
+                - "SYS_NICE"
+                - "IPC_LOCK"
+
+        - name: hackbench
+          image: paleozogt/rt-tests:1.0
+          command:
+            - /scripts/hackbench.sh
+          envFrom:
+            - configMapRef:
+                name: rt-tests-env
+          volumeMounts:
+            - name: rt-tests-scripts
+              mountPath: "/scripts"
+            - name: rt-tests-shared
+              mountPath: /rt-tests-shared
+
+      volumes:
+        - name: rt-tests-scripts
+          configMap:
+            name: rt-tests-scripts
+            defaultMode: 0777
+        - name: rt-tests-shared
+          emptyDir: {}
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rt-tests-env
+data:
+  HISTFILE: cyclictest-histogram.txt
+  DURATION: 1m
+  PRIORITY: "90"
+  INTERVAL: "200"
+  MAX_LATENCY: "100"
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rt-tests-scripts
+data:
+  cyclictest.sh: |
+    #!/bin/bash
+    set -x
+
+    # wait for hackbench to get going
+    while [ ! -f /rt-tests-shared/ready ]; do sleep 1; done
+
+    # run cyclictest
+    time cyclictest -m -S --duration=$DURATION -p$PRIORITY -i$INTERVAL -h$MAX_LATENCY --histfile $HISTFILE
+    touch /rt-tests-shared/finished
+
+    # prepend uname info to the histogram
+    sed -i "0,/# Histogram/ s~# Histogram~# Histogram\n# $(uname -a)~" $HISTFILE
+
+    sleep infinity
+
+  hackbench.sh: |
+    #!/bin/bash
+    set -x
+
+    # start up hackbench
+    time hackbench -l 2147483647 -s 512 &
+    hackbench_pid=$!
+
+    # wait for hackbench to get going
+    sleep 5
+    touch /rt-tests-shared/ready
+
+    # wait for the signal to quit
+    while [ ! -f /rt-tests-shared/finished ]; do sleep 1; done
+    kill $hackbench_pid
+
+    sleep infinity
