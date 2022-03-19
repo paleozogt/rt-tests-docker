@@ -56,7 +56,7 @@ data:
   DURATION: 1m
   PRIORITY: "90"
   INTERVAL: "200"
-  MAX_LATENCY: "100"
+  MAX_LATENCY: "199999"
 
 ---
 
