@@ -1,60 +1,49 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
   name: rt-tests
-  labels:
-    app: rt-tests
 spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: rt-tests
-  template:
-    metadata:
-      labels:
-        app: rt-tests
-    spec:
-      nodeSelector:
-        latency_test: "true"
-      containers:
-        - name: cyclictest
-          image: paleozogt/rt-tests:1.0
-          command:
-            - /scripts/cyclictest.sh
-          envFrom:
-            - configMapRef:
-                name: rt-tests-env
-          volumeMounts:
-            - name: rt-tests-scripts
-              mountPath: "/scripts"
-            - name: rt-tests-shared
-              mountPath: /rt-tests-shared
-          securityContext:
-            capabilities:
-              add:
-                - "SYS_NICE"
-                - "IPC_LOCK"
-
-        - name: hackbench
-          image: paleozogt/rt-tests:1.0
-          command:
-            - /scripts/hackbench.sh
-          envFrom:
-            - configMapRef:
-                name: rt-tests-env
-          volumeMounts:
-            - name: rt-tests-scripts
-              mountPath: "/scripts"
-            - name: rt-tests-shared
-              mountPath: /rt-tests-shared
-
-      volumes:
+  nodeSelector:
+    latency_test: "true"
+  containers:
+    - name: cyclictest
+      image: paleozogt/rt-tests:1.0
+      command:
+        - /scripts/cyclictest.sh
+      envFrom:
+        - configMapRef:
+            name: rt-tests-env
+      volumeMounts:
         - name: rt-tests-scripts
-          configMap:
-            name: rt-tests-scripts
-            defaultMode: 0777
+          mountPath: "/scripts"
         - name: rt-tests-shared
-          emptyDir: {}
+          mountPath: /rt-tests-shared
+      securityContext:
+        capabilities:
+          add:
+            - "SYS_NICE"
+            - "IPC_LOCK"
+
+    - name: hackbench
+      image: paleozogt/rt-tests:1.0
+      command:
+        - /scripts/hackbench.sh
+      envFrom:
+        - configMapRef:
+            name: rt-tests-env
+      volumeMounts:
+        - name: rt-tests-scripts
+          mountPath: "/scripts"
+        - name: rt-tests-shared
+          mountPath: /rt-tests-shared
+
+  volumes:
+    - name: rt-tests-scripts
+      configMap:
+        name: rt-tests-scripts
+        defaultMode: 0777
+    - name: rt-tests-shared
+      emptyDir: {}
 
 ---
 
